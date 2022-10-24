@@ -93,13 +93,13 @@ describe('Add', () => {
     const h = Poseidon.hash(tag.concat(zkAppPrivateKey.toFields())).toBits();
     const hG = Group.generator.scale(Scalar.ofBits(h));
     // TODO(@ckartik): Can't seem to set encrypted key into bits
-    const encryptedKey = Group.toFields(T.add(hG));
+    const encryptedKey = T.add(hG);
     const Tbuf = Group.toFields(T);
 
     const key = Poseidon.hash(Tbuf);
 
     let sponge = new Poseidon.Sponge();
-    sponge.absorb(T.x);
+    sponge.absorb(key);
     const message = Encoding.stringToFields('This is a uber secret');
 
     // encryption
@@ -116,15 +116,43 @@ describe('Add', () => {
     let authenticationTag = sponge.squeeze();
     cipherText.push(authenticationTag);
     // TODO(@ckartik): Create a checksum here
-    console.log(cipherText);
 
     // Decrypt
     const xb = zkAppPrivateKey.toFields();
     // TODO(@ckartik): Check the checksum
     const h_ = Scalar.ofBits(Poseidon.hash(tag.concat(xb)).toBits());
     const hG_ = Group.generator.scale(h_);
-    console.log(hG_);
-    console.log(key);
-    console.log(encryptedKey);
+
+    const encryptedKey_ = encryptedKey;
+    const T_ = encryptedKey_.sub(hG_);
+    const Tbuf_ = Group.toFields(T_);
+    const key_ = Poseidon.hash(Tbuf_);
+
+    // Decryption
+    let sponge_ = new Poseidon.Sponge();
+    sponge_.absorb(key_);
+    let authenticationTag_ = cipherText.pop();
+
+    // decryption
+    let message_: Field[] = [];
+    for (let i = 0; i < cipherText.length; i++) {
+      let keyStream = sponge_.squeeze();
+      let messageChunk = cipherText[i].sub(keyStream);
+      message_.push(messageChunk);
+      if (i % 2 === 1) sponge_.absorb(cipherText[i - 1]);
+      if (i % 2 === 1 || i === cipherText.length - 1)
+        sponge_.absorb(cipherText[i]);
+    }
+    sponge_.squeeze().assertEquals(authenticationTag_!);
+
+    console.log(Encoding.stringFromFields(message));
+    console.log(Encoding.stringFromFields(message_));
+
+    // console.log(Encoding.stringFromFields(message_))
   });
 });
+// Example of using encrytption decryption in snarky
+// https://github.com/o1-labs/snarkyjs/blob/3cf7dbd551492af0ab4a49bd2573345464ebea9e/src/examples/encryption.ts#L64
+
+// Defn of encrypt decrypt utility
+// https://github.com/o1-labs/snarkyjs/blob/main/src/lib/encryption.ts
