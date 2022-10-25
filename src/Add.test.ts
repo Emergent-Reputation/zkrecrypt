@@ -85,7 +85,7 @@ describe('Add', () => {
     expect(updatedNum).toEqual(Field(3));
   });
 
-  it('correctly encrypts the data', async () => {
+  it.only('correctly encrypts the data', async () => {
     // Encrypt
     const t = Scalar.random();
     const T = Group.generator.scale(t);
@@ -100,7 +100,7 @@ describe('Add', () => {
 
     let sponge = new Poseidon.Sponge();
     sponge.absorb(key);
-    const message = Encoding.stringToFields('This is a uber secret');
+    const message = Encoding.stringToFields('Happy Diwali!');
 
     // encryption
     let cipherText: Field[] = [];
