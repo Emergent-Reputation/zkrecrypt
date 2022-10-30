@@ -121,6 +121,8 @@ describe('Add', () => {
     /*
     Start of Re Key Generation
     */
+    const bobPrivKey = PrivateKey.random();
+    const bobPubKey = bobPrivKey.toPublicKey();
     const r_rekey = Scalar.random();
 
     const privKey = zkAppPrivateKey;
@@ -129,10 +131,12 @@ describe('Add', () => {
     // R1 Generation
     const R1 = Group.generator.scale(r_rekey.sub(Scalar.ofFields(h_rekey)));
     // R2 Geneartion
-    // TODO(@ckartik): Need to replace zkappprivatekey.toPublicKey() here with the actual pub key.
-    const R2 = zkAppPrivateKey.toPublicKey().toGroup().scale(r_rekey); //  rP = rxG
+
+    const R2 = bobPubKey.toGroup().scale(r_rekey); //  rP = rxG
 
     const R3 = Scalar.ofFields(Field.toFields(h_rekey));
+
+    // For Linter to shut-up.
     R1;
     R2;
     R3;
