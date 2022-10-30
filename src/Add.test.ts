@@ -131,9 +131,11 @@ describe('Add', () => {
     // R2 Geneartion
     // TODO(@ckartik): Need to replace zkappprivatekey.toPublicKey() here with the actual pub key.
     const R2 = zkAppPrivateKey.toPublicKey().toGroup().scale(r_rekey); //  rP = rxG
+
+    const R3 = Scalar.ofFields(Field.toFields(h_rekey));
     R1;
     R2;
-    // const R3 =
+    R3;
     /*
     End of Re-Key Generation
     */
