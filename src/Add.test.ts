@@ -117,6 +117,27 @@ describe('Add', () => {
     cipherText.push(authenticationTag);
     // TODO(@ckartik): Create a checksum here
 
+    // REKey Generation
+    /*
+    Start of Re Key Generation
+    */
+    const r_rekey = Scalar.random();
+
+    const privKey = zkAppPrivateKey;
+    const h_rekey = Poseidon.hash(tag.concat(privKey.toFields()));
+
+    // R1 Generation
+    const R1 = Group.generator.scale(r_rekey.sub(Scalar.ofFields(h_rekey)));
+    // R2 Geneartion
+    // TODO(@ckartik): Need to replace zkappprivatekey.toPublicKey() here with the actual pub key.
+    const R2 = zkAppPrivateKey.toPublicKey().toGroup().scale(r_rekey); //  rP = rxG
+    R1;
+    R2;
+    // const R3 =
+    /*
+    End of Re-Key Generation
+    */
+
     // Decrypt
     const xb = zkAppPrivateKey.toFields();
     // TODO(@ckartik): Check the checksum
@@ -128,7 +149,7 @@ describe('Add', () => {
     const Tbuf_ = Group.toFields(T_);
     const key_ = Poseidon.hash(Tbuf_);
 
-    // Decryption
+    // Poseidon Decryption
     let sponge_ = new Poseidon.Sponge();
     sponge_.absorb(key_);
     let authenticationTag_ = cipherText.pop();
