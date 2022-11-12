@@ -13,6 +13,14 @@ import {
   Encoding,
 } from 'snarkyjs';
 
+// type ReEncryptedMessage = {
+//   D1: Buffer;                 //  Point
+//   D2: Buffer;
+//   D3: Buffer;
+//   D4: Buffer;                 //  Point
+//   D5: Buffer;                 //  Point
+// }
+
 /**
  * @internal
  * @param args -
@@ -87,10 +95,10 @@ describe('Add', () => {
 
   it.only('correctly encrypts the data', async () => {
     // Encrypt
-    const t = Scalar.random();
-    const T = Group.generator.scale(t);
+    const t = Scalar.random(); // tmp private key
+    const T = Group.generator.scale(t); // tmp public key
 
-    const h = Poseidon.hash(tag.concat(zkAppPrivateKey.toFields())).toBits();
+    const h = Poseidon.hash(tag.concat(zkAppPrivateKey.toFields())).toBits(); //
     const hG = Group.generator.scale(Scalar.ofBits(h));
     // TODO(@ckartik): Can't seem to set encrypted key into bits
     const encryptedKey = T.add(hG);
@@ -120,7 +128,7 @@ describe('Add', () => {
     // REKey Generation
     /*
     Start of Re Key Generation
-    */
+
     const bobPrivKey = PrivateKey.random();
     const bobPubKey = bobPrivKey.toPublicKey();
     const r_rekey = Scalar.random();
@@ -140,9 +148,50 @@ describe('Add', () => {
     R1;
     R2;
     R3;
-    /*
+
     End of Re-Key Generation
     */
+
+    /*
+      Re-Decrypt
+
+    const check1 = sha512(
+      msg.encryptedKey,
+      msg.data,
+      msg.messageChecksum,
+      rekey.R3
+  );
+
+  if (!check1.equals(msg.overallChecksum)) {
+      throw new OverallChecksumFailure();
+  }
+
+  const P = curve.pointFromBuffer(publicKey);
+  const t = curve.randomScalar();
+  const txG = P.mul(t);                                                   //  tP = txG
+
+  const res: Partial<ReEncryptedMessage> = {};
+  res.D2 = msg.data;
+  res.D3 = msg.messageChecksum;
+  res.D4 = rekey.R2;
+  res.D5 = curve.basepoint.mul(t).toBuffer()                              //  tG
+
+  //  hash7
+  const bet = curve.scalarFromHash(
+      txG.toBuffer(),
+      res.D2,
+      res.D3,
+      res.D4,
+      res.D5
+  );
+
+  const R1 = curve.pointFromBuffer(rekey.R1);
+  const encryptedKey = curve.pointFromBuffer(msg.encryptedKey).add(R1);
+  res.D1 = encryptedKey.mul(bet).toBuffer();
+
+  return res as ReEncryptedMessage;
+    copied re-encrypt
+  */
 
     // Decrypt
     const xb = zkAppPrivateKey.toFields();
