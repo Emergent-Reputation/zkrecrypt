@@ -7,11 +7,13 @@ import {
   DeployArgs,
   Permissions,
   Group,
+  Scalar,
   // Poseidon,
   // Scalar,
   // Encoding,
   // CircuitString,
   Experimental,
+  Poseidon,
   // Circuit,
   // PrivateKey,
 } from 'snarkyjs';
@@ -27,6 +29,9 @@ export class ReEncrypt extends SmartContract {
   // This will be Bob's key once we re-encrypt it from `encryptedSymmetricKey`
   @state(Group) reEncryptedKey = State<Group>();
 
+  // Stores a hash of the symKey to ensure integirty of updates
+  @state(Field) symKeyHash = State<Field>();
+
   @state(Field) treeRoot = State<Field>();
   @state(Field) nextIndex = State<Field>();
 
@@ -41,12 +46,23 @@ export class ReEncrypt extends SmartContract {
   // Does nothing
   @method init(initRoot: Field) {
     // We init an empty MerkleTree on initialization.
+    // Init Sym Key
+    const symPrivKey = Scalar.random(); // tmp private key
+
+    // Derive the pubkey
+    const symPubKey = Group.generator.scale(symPrivKey);
+
+    this.symKeyHash.set(Poseidon.hash(Group.toFields(symPubKey)));
+
     this.treeRoot.set(initRoot);
     this.nextIndex.set(Field(0));
   }
 
   @method addData(data: Field, witness: MerkleWitness20) {
     // TODO(@ckartik): Encrypt the data
+    // let sponge = new Poseidon.Sponge();
+    // sponge.absorb(key);
+    // let encryptedData = data.add(keyStream);
 
     // Update the tree leafs
     const currRoot = this.treeRoot.get();

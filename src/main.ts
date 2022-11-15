@@ -6,6 +6,7 @@ import {
   PrivateKey,
   AccountUpdate,
   Experimental,
+  Field,
 } from 'snarkyjs';
 
 (async function main() {
@@ -37,7 +38,17 @@ import {
   var nextIndex = contract.nextIndex.get();
 
   const witness = new MerkleWitness(tree.getWitness(nextIndex.toBigInt()));
+  console.log(contract.treeRoot.get().toString());
+  tree.setLeaf(nextIndex.toBigInt(), Field(666));
 
+  const txn1 = await Mina.transaction(deployerAccount, () => {
+    contract.addData(Field(666), witness);
+    contract.sign(zkAppPrivateKey);
+  });
+  await txn1.send().wait();
+
+  console.log('Local Tree Root:  ', tree.getRoot().toString());
+  console.log('Remote Tree Root: ', contract.treeRoot.get().toString());
   witness;
   txn;
   alicePrivateKey;
