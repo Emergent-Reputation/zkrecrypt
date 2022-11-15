@@ -45,5 +45,8 @@
   },
   "peerDependencies": {
     "snarkyjs": "^0.6.0"
+  },
+  "dependencies": {
+    "ipfs-core": "^0.17.0"
   }
 }
