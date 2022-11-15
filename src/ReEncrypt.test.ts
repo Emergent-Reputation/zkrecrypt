@@ -1,4 +1,4 @@
-import { Add } from './Add';
+import { ReEncrypt } from './ReEncrypt';
 import {
   isReady,
   shutdown,
@@ -12,6 +12,14 @@ import {
   Scalar,
   Encoding,
 } from 'snarkyjs';
+
+// type ReEncryptedMessage = {
+//   D1: Buffer;                 //  Point
+//   D2: Buffer;
+//   D3: Buffer;
+//   D4: Buffer;                 //  Point
+//   D5: Buffer;                 //  Point
+// }
 
 /**
  * @internal
@@ -31,7 +39,7 @@ function createLocalBlockchain() {
   return Local.testAccounts[0].privateKey;
 }
 async function localDeploy(
-  zkAppInstance: Add,
+  zkAppInstance: ReEncrypt,
   zkAppPrivatekey: PrivateKey,
   deployerAccount: PrivateKey
 ) {
@@ -66,14 +74,14 @@ describe('Add', () => {
   });
 
   it('generates and deploys the `Add` smart contract', async () => {
-    const zkAppInstance = new Add(zkAppAddress);
+    const zkAppInstance = new ReEncrypt(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     const num = zkAppInstance.num.get();
     expect(num).toEqual(Field.one);
   });
 
   it('correctly updates the num state on the `Add` smart contract', async () => {
-    const zkAppInstance = new Add(zkAppAddress);
+    const zkAppInstance = new ReEncrypt(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     const txn = await Mina.transaction(deployerAccount, () => {
       zkAppInstance.update();
@@ -85,12 +93,12 @@ describe('Add', () => {
     expect(updatedNum).toEqual(Field(3));
   });
 
-  it('correctly encrypts the data', async () => {
+  it.only('correctly encrypts the data', async () => {
     // Encrypt
-    const t = Scalar.random();
-    const T = Group.generator.scale(t);
+    const t = Scalar.random(); // tmp private key
+    const T = Group.generator.scale(t); // tmp public key
 
-    const h = Poseidon.hash(tag.concat(zkAppPrivateKey.toFields())).toBits();
+    const h = Poseidon.hash(tag.concat(zkAppPrivateKey.toFields())).toBits(); //
     const hG = Group.generator.scale(Scalar.ofBits(h));
     // TODO(@ckartik): Can't seem to set encrypted key into bits
     const encryptedKey = T.add(hG);
@@ -100,7 +108,7 @@ describe('Add', () => {
 
     let sponge = new Poseidon.Sponge();
     sponge.absorb(key);
-    const message = Encoding.stringToFields('This is a uber secret');
+    const message = Encoding.stringToFields('Happy Diwali!');
 
     // encryption
     let cipherText: Field[] = [];
@@ -117,6 +125,74 @@ describe('Add', () => {
     cipherText.push(authenticationTag);
     // TODO(@ckartik): Create a checksum here
 
+    // REKey Generation
+    /*
+    Start of Re Key Generation
+
+    const bobPrivKey = PrivateKey.random();
+    const bobPubKey = bobPrivKey.toPublicKey();
+    const r_rekey = Scalar.random();
+
+    const privKey = zkAppPrivateKey;
+    const h_rekey = Poseidon.hash(tag.concat(privKey.toFields()));
+
+    // R1 Generation
+    const R1 = Group.generator.scale(r_rekey.sub(Scalar.ofFields(h_rekey)));
+    // R2 Geneartion
+
+    const R2 = bobPubKey.toGroup().scale(r_rekey); //  rP = rxG
+
+    const R3 = Scalar.ofFields(Field.toFields(h_rekey));
+
+    // For Linter to shut-up.
+    R1;
+    R2;
+    R3;
+
+    End of Re-Key Generation
+    */
+
+    /*
+      Re-Decrypt
+
+    const check1 = sha512(
+      msg.encryptedKey,
+      msg.data,
+      msg.messageChecksum,
+      rekey.R3
+  );
+
+  if (!check1.equals(msg.overallChecksum)) {
+      throw new OverallChecksumFailure();
+  }
+
+  const P = curve.pointFromBuffer(publicKey);
+  const t = curve.randomScalar();
+  const txG = P.mul(t);                                                   //  tP = txG
+
+  const res: Partial<ReEncryptedMessage> = {};
+  res.D2 = msg.data;
+  res.D3 = msg.messageChecksum;
+  res.D4 = rekey.R2;
+  res.D5 = curve.basepoint.mul(t).toBuffer()                              //  tG
+
+  //  hash7
+  const bet = curve.scalarFromHash(
+      txG.toBuffer(),
+      res.D2,
+      res.D3,
+      res.D4,
+      res.D5
+  );
+
+  const R1 = curve.pointFromBuffer(rekey.R1);
+  const encryptedKey = curve.pointFromBuffer(msg.encryptedKey).add(R1);
+  res.D1 = encryptedKey.mul(bet).toBuffer();
+
+  return res as ReEncryptedMessage;
+    copied re-encrypt
+  */
+
     // Decrypt
     const xb = zkAppPrivateKey.toFields();
     // TODO(@ckartik): Check the checksum
@@ -128,7 +204,7 @@ describe('Add', () => {
     const Tbuf_ = Group.toFields(T_);
     const key_ = Poseidon.hash(Tbuf_);
 
-    // Decryption
+    // Poseidon Decryption
     let sponge_ = new Poseidon.Sponge();
     sponge_.absorb(key_);
     let authenticationTag_ = cipherText.pop();
