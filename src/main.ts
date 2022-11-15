@@ -30,10 +30,10 @@ import {
   const deployTxn = await Mina.transaction(deployerAccount, () => {
     AccountUpdate.fundNewAccount(deployerAccount);
     contract.deploy({ zkappKey: zkAppPrivateKey });
-    contract.init(tree.getRoot());
+    contract.init(tree.getRoot(), alicePrivateKey, Field(1));
     contract.sign(zkAppPrivateKey);
   });
-  const txn = await deployTxn.send().wait();
+  await deployTxn.send().wait();
 
   var nextIndex = contract.nextIndex.get();
 
@@ -42,16 +42,13 @@ import {
   tree.setLeaf(nextIndex.toBigInt(), Field(666));
 
   const txn1 = await Mina.transaction(deployerAccount, () => {
-    contract.addData(Field(666), witness);
+    contract.addData(Field(666), witness, alicePrivateKey);
     contract.sign(zkAppPrivateKey);
   });
   await txn1.send().wait();
 
   console.log('Local Tree Root:  ', tree.getRoot().toString());
   console.log('Remote Tree Root: ', contract.treeRoot.get().toString());
-  witness;
-  txn;
-  alicePrivateKey;
 
   // const encryptTxn = await Mina.transaction(deployerAccount, () => {
   //   contract.encrypt(alicePrivateKey)

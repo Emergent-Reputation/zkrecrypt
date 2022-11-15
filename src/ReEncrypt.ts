@@ -8,12 +8,11 @@ import {
   Permissions,
   Group,
   Scalar,
-  // Poseidon,
-  // Scalar,
   // Encoding,
   // CircuitString,
   Experimental,
   Poseidon,
+  PrivateKey,
   // Circuit,
   // PrivateKey,
 } from 'snarkyjs';
@@ -24,14 +23,13 @@ export class ReEncrypt extends SmartContract {
   // This will represent the key that should be re-encrypted for others.
   // This is Alice's symmetric key encrypted
   @state(Group) encryptedSymmetricKey = State<Group>();
-  @state(Field) cipher = State<Field>();
 
   // This will be Bob's key once we re-encrypt it from `encryptedSymmetricKey`
   @state(Group) reEncryptedKey = State<Group>();
 
   // Stores a hash of the symKey to ensure integirty of updates
   @state(Field) symKeyHash = State<Field>();
-
+  @state(Field) tag = State<Field>();
   @state(Field) treeRoot = State<Field>();
   @state(Field) nextIndex = State<Field>();
 
@@ -43,26 +41,61 @@ export class ReEncrypt extends SmartContract {
     });
   }
 
-  // Does nothing
-  @method init(initRoot: Field) {
+  @method init(initRoot: Field, alicePrivateKey: PrivateKey, tag: Field) {
     // We init an empty MerkleTree on initialization.
+
     // Init Sym Key
     const symPrivKey = Scalar.random(); // tmp private key
-
     // Derive the pubkey
     const symPubKey = Group.generator.scale(symPrivKey);
 
+    // Set the tag at the top level
+    this.tag.set(tag);
+
+    // Construct a determinstic element of the group repd by EC(F_P).
+    const h = Scalar.ofBits(
+      Poseidon.hash(tag.toFields().concat(alicePrivateKey.toFields())).toBits()
+    );
+    const hG = Group.generator.scale(h);
+
+    // Set the sym key approperiately
+    this.encryptedSymmetricKey.set(symPubKey.add(hG));
+
+    // Hash of symkey is stored for integirty checks during data updates.
     this.symKeyHash.set(Poseidon.hash(Group.toFields(symPubKey)));
 
+    // Set the merkle root hash to zero value
     this.treeRoot.set(initRoot);
+
+    // Set index for data entry to zero value
     this.nextIndex.set(Field(0));
   }
 
-  @method addData(data: Field, witness: MerkleWitness20) {
+  // Currently only supports append-only operations.
+  // TODO(@ckartik): Think about dynamic access
+  @method addData(
+    data: Field,
+    witness: MerkleWitness20,
+    privateKey: PrivateKey
+  ) {
     // TODO(@ckartik): Encrypt the data
     // let sponge = new Poseidon.Sponge();
-    // sponge.absorb(key);
+    // sponge.absorb();
     // let encryptedData = data.add(keyStream);
+    const tag = this.tag.get();
+    this.tag.assertEquals(tag);
+
+    const h = Scalar.ofBits(
+      Poseidon.hash(tag.toFields().concat(privateKey.toFields())).toBits()
+    );
+    const hG = Group.generator.scale(h);
+
+    const encryptedKey = this.encryptedSymmetricKey.get();
+    this.encryptedSymmetricKey.assertEquals(encryptedKey);
+
+    // LHS = encKey - hG = (key + hG) - hG = key QED
+    const key = encryptedKey.sub(hG);
+    this.symKeyHash.assertEquals(Poseidon.hash(Group.toFields(key)));
 
     // Update the tree leafs
     const currRoot = this.treeRoot.get();
