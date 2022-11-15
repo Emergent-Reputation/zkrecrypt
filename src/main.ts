@@ -42,7 +42,6 @@ import {
 
   const witness = new MerkleWitness(tree.getWitness(nextIndex.toBigInt()));
   console.log(contract.treeRoot.get().toString());
-  let sponge = new Poseidon.Sponge();
 
   const h = Scalar.ofBits(
     Poseidon.hash([Field(1)].concat(alicePrivateKey.toFields())).toBits()
@@ -50,7 +49,7 @@ import {
   const hG = Group.generator.scale(h);
 
   const encKey = contract.encryptedSymmetricKey.get();
-
+  let sponge = new Poseidon.Sponge();
   sponge.absorb(Poseidon.hash(Group.toFields(encKey.sub(hG))));
 
   // Resulting encrypted payload
@@ -65,6 +64,15 @@ import {
 
   console.log('Local Tree Root:  ', tree.getRoot().toString());
   console.log('Remote Tree Root: ', contract.treeRoot.get().toString());
+
+  let sponge2 = new Poseidon.Sponge();
+  sponge2.absorb(Poseidon.hash(Group.toFields(encKey.sub(hG))));
+
+  // Resulting encrypted payload
+  console.log(
+    'Decrypted data should be 666: ',
+    encryptedData.sub(sponge2.squeeze()).toString()
+  );
 
   // const encryptTxn = await Mina.transaction(deployerAccount, () => {
   //   contract.encrypt(alicePrivateKey)

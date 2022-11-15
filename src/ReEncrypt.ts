@@ -13,6 +13,7 @@ import {
   Experimental,
   Poseidon,
   PrivateKey,
+  PublicKey,
   // Circuit,
   // PrivateKey,
 } from 'snarkyjs';
@@ -118,6 +119,9 @@ export class ReEncrypt extends SmartContract {
     this.nextIndex.set(currIndex.add(Field(1)));
   }
 
+  @method async grantAccessToData(pubKey: PublicKey) {
+    pubKey;
+  }
   //   @method async storeEncryptionKey(privKey: PrivateKey) {
   //   }
 
