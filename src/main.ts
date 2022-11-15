@@ -7,6 +7,9 @@ import {
   AccountUpdate,
   Experimental,
   Field,
+  Poseidon,
+  Group,
+  Scalar,
 } from 'snarkyjs';
 
 (async function main() {
@@ -39,7 +42,20 @@ import {
 
   const witness = new MerkleWitness(tree.getWitness(nextIndex.toBigInt()));
   console.log(contract.treeRoot.get().toString());
-  tree.setLeaf(nextIndex.toBigInt(), Field(666));
+  let sponge = new Poseidon.Sponge();
+
+  const h = Scalar.ofBits(
+    Poseidon.hash([Field(1)].concat(alicePrivateKey.toFields())).toBits()
+  );
+  const hG = Group.generator.scale(h);
+
+  const encKey = contract.encryptedSymmetricKey.get();
+
+  sponge.absorb(Poseidon.hash(Group.toFields(encKey.sub(hG))));
+
+  // Resulting encrypted payload
+  let encryptedData = Field(666).add(sponge.squeeze());
+  tree.setLeaf(nextIndex.toBigInt(), encryptedData);
 
   const txn1 = await Mina.transaction(deployerAccount, () => {
     contract.addData(Field(666), witness, alicePrivateKey);

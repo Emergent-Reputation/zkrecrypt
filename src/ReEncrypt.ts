@@ -79,9 +79,7 @@ export class ReEncrypt extends SmartContract {
     privateKey: PrivateKey
   ) {
     // TODO(@ckartik): Encrypt the data
-    // let sponge = new Poseidon.Sponge();
-    // sponge.absorb();
-    // let encryptedData = data.add(keyStream);
+
     const tag = this.tag.get();
     this.tag.assertEquals(tag);
 
@@ -95,7 +93,14 @@ export class ReEncrypt extends SmartContract {
 
     // LHS = encKey - hG = (key + hG) - hG = key QED
     const key = encryptedKey.sub(hG);
+
+    // Generate KeyStream from Sym Key
     this.symKeyHash.assertEquals(Poseidon.hash(Group.toFields(key)));
+    let sponge = new Poseidon.Sponge();
+    sponge.absorb(Poseidon.hash(Group.toFields(key)));
+
+    // Resulting encrypted payload
+    let encryptedData = data.add(sponge.squeeze());
 
     // Update the tree leafs
     const currRoot = this.treeRoot.get();
@@ -104,7 +109,7 @@ export class ReEncrypt extends SmartContract {
 
     // Set new root for data
     // Note the actual data needs to be added externally
-    const newRoot = witness.calculateRoot(data);
+    const newRoot = witness.calculateRoot(encryptedData);
     this.treeRoot.set(newRoot);
 
     // Set new Index
