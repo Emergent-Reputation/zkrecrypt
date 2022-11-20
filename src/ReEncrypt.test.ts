@@ -11,6 +11,7 @@ import {
   Poseidon,
   Scalar,
   Encoding,
+  Experimental,
 } from 'snarkyjs';
 
 // type ReEncryptedMessage = {
@@ -32,6 +33,8 @@ import {
  *
  * See https://docs.minaprotocol.com/zkapps for more info.
  */
+const height = 20;
+class MerkleWitness extends Experimental.MerkleWitness(height) {}
 
 function createLocalBlockchain() {
   const Local = Mina.LocalBlockchain();
@@ -39,61 +42,95 @@ function createLocalBlockchain() {
   return Local.testAccounts[0].privateKey;
 }
 async function localDeploy(
-  zkAppInstance: ReEncrypt,
-  zkAppPrivatekey: PrivateKey,
-  deployerAccount: PrivateKey
+  contract: ReEncrypt,
+  zkAppPrivateKey: PrivateKey,
+  deployerAccount: PrivateKey,
+  alicePrivateKey: PrivateKey
 ) {
-  const txn = await Mina.transaction(deployerAccount, () => {
+  const tree = new Experimental.MerkleTree(height);
+
+  const deployTxn = await Mina.transaction(deployerAccount, () => {
     AccountUpdate.fundNewAccount(deployerAccount);
-    zkAppInstance.deploy({ zkappKey: zkAppPrivatekey });
-    zkAppInstance.init();
-    zkAppInstance.sign(zkAppPrivatekey);
+    contract.deploy({ zkappKey: zkAppPrivateKey });
+    contract.init(tree.getRoot(), alicePrivateKey, Field(1));
+    contract.sign(zkAppPrivateKey);
   });
-  await txn.send().wait();
+  await deployTxn.send().wait();
 }
 
 describe('Add', () => {
   let deployerAccount: PrivateKey,
     zkAppAddress: PublicKey,
-    zkAppPrivateKey: PrivateKey;
-
+    zkAppPrivateKey: PrivateKey,
+    alicePrivateKey: PrivateKey;
   let tag: Field[];
   beforeEach(async () => {
     await isReady;
     deployerAccount = createLocalBlockchain();
     zkAppPrivateKey = PrivateKey.random();
+    alicePrivateKey = PrivateKey.random();
     zkAppAddress = zkAppPrivateKey.toPublicKey();
     tag = Encoding.stringToFields('tag');
   });
 
   afterAll(async () => {
-    // `shutdown()` internally calls `process.exit()` which will exit the running Jest process early.
-    // Specifying a timeout of 0 is a workaround to defer `shutdown()` until Jest is done running all tests.
-    // This should be fixed with https://github.com/MinaProtocol/mina/issues/10943
     setTimeout(shutdown, 0);
   });
 
-  it('generates and deploys the `Add` smart contract', async () => {
-    const zkAppInstance = new ReEncrypt(zkAppAddress);
-    await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
-    const num = zkAppInstance.num.get();
-    expect(num).toEqual(Field.one);
-  });
+  it('creates encrypted payload', async () => {
+    const contract = new ReEncrypt(zkAppAddress);
+    await localDeploy(
+      contract,
+      zkAppPrivateKey,
+      deployerAccount,
+      alicePrivateKey
+    );
 
-  it('correctly updates the num state on the `Add` smart contract', async () => {
-    const zkAppInstance = new ReEncrypt(zkAppAddress);
-    await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
-    const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.update();
-      zkAppInstance.sign(zkAppPrivateKey);
+    const tree = new Experimental.MerkleTree(height);
+
+    var nextIndex = contract.nextIndex.get();
+
+    const witness = new MerkleWitness(tree.getWitness(nextIndex.toBigInt()));
+    console.log(contract.treeRoot.get().toString());
+
+    const h = Scalar.ofBits(
+      Poseidon.hash([Field(1)].concat(alicePrivateKey.toFields())).toBits()
+    );
+    const hG = Group.generator.scale(h);
+
+    const encKey = contract.encryptedSymmetricKey.get();
+    let sponge = new Poseidon.Sponge();
+    sponge.absorb(Poseidon.hash(Group.toFields(encKey.sub(hG))));
+
+    // Resulting encrypted payload
+    let encryptedData = Field(666).add(sponge.squeeze());
+    tree.setLeaf(nextIndex.toBigInt(), encryptedData);
+
+    const txn1 = await Mina.transaction(deployerAccount, () => {
+      contract.addData(Field(666), witness, alicePrivateKey);
+      contract.sign(zkAppPrivateKey);
     });
-    await txn.send().wait();
+    await txn1.send().wait();
 
-    const updatedNum = zkAppInstance.num.get();
-    expect(updatedNum).toEqual(Field(3));
+    tree.getRoot().assertEquals(contract.treeRoot.get());
+
+    console.log('Local Tree Root:  ', tree.getRoot().toString());
+    console.log('Remote Tree Root: ', contract.treeRoot.get().toString());
+
+    let sponge2 = new Poseidon.Sponge();
+    sponge2.absorb(Poseidon.hash(Group.toFields(encKey.sub(hG))));
+
+    const decryptedPlainText = encryptedData.sub(sponge2.squeeze());
+    decryptedPlainText.assertEquals(Field(666));
+
+    // Resulting encrypted payload
+    console.log(
+      'Decrypted data should be 666: ',
+      decryptedPlainText.toString()
+    );
   });
 
-  it.only('correctly encrypts the data', async () => {
+  it('correctly encrypts the data', async () => {
     // Encrypt
     const t = Scalar.random(); // tmp private key
     const T = Group.generator.scale(t); // tmp public key
