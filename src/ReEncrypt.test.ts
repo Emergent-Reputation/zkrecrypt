@@ -99,8 +99,10 @@ describe('Add', () => {
     const hG = Group.generator.scale(h);
 
     const encKey = contract.encryptedSymmetricKey.get();
+    const key = encKey.sub(hG);
     let sponge = new Poseidon.Sponge();
-    sponge.absorb(Poseidon.hash(Group.toFields(encKey.sub(hG))));
+    sponge.absorb(key.x);
+    sponge.absorb(key.y);
 
     // Resulting encrypted payload
     let encryptedData = Field(666).add(sponge.squeeze());
@@ -118,7 +120,8 @@ describe('Add', () => {
     console.log('Remote Tree Root: ', contract.treeRoot.get().toString());
 
     let sponge2 = new Poseidon.Sponge();
-    sponge2.absorb(Poseidon.hash(Group.toFields(encKey.sub(hG))));
+    sponge2.absorb(key.x);
+    sponge2.absorb(key.y);
 
     const decryptedPlainText = encryptedData.sub(sponge2.squeeze());
     decryptedPlainText.assertEquals(Field(666));
@@ -128,6 +131,18 @@ describe('Add', () => {
       'Decrypted data should be 666: ',
       decryptedPlainText.toString()
     );
+  });
+
+  it('correctly creates secret key exchange', async () => {
+    const a = PrivateKey.random();
+    const b = PrivateKey.random();
+
+    const aG = a.toPublicKey();
+    const bG = b.toPublicKey();
+
+    aG.toGroup()
+      .scale(Scalar.ofFields(b.toFields()))
+      .assertEquals(bG.toGroup().scale(Scalar.ofFields(a.toFields())));
   });
 
   it('correctly encrypts the data', async () => {

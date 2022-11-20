@@ -102,17 +102,9 @@ export class ReEncrypt extends SmartContract {
     //ATTACK There's not enough entropy here
     //ATTACK This will be decrypt susciptilbe to an attack given two pieces of ciphertext
 
-    sponge.absorb(Poseidon.hash(Group.toFields(key)));
+    sponge.absorb(key.x);
+    sponge.absorb(key.y);
 
-    // Resulting encrypted payload
-    /*ATTACK Proof of attack: 
-      - C1 = d1 + k
-      - C2 = d2 + k
-      - C3 = d3 + k
-
-      If d from a distribiution, we can cycle through k?
-      The combination mechanism is not xor but
-    */
     let encryptedData = data.add(sponge.squeeze());
 
     // Update the tree leafs
@@ -143,20 +135,18 @@ export class ReEncrypt extends SmartContract {
 
     const xb = alicePrivateKey.toFields();
     // TODO(@ckartik): Check the checksum
-    const h_ = Scalar.ofBits(Poseidon.hash(tag.toFields().concat(xb)).toBits());
-    const hG_ = Group.generator.scale(h_);
+    const h = Scalar.ofBits(Poseidon.hash(tag.toFields().concat(xb)).toBits());
+    const hG = Group.generator.scale(h);
+    const T = encryptedKey.sub(hG);
 
-    const T_ = encryptedKey.sub(hG_);
-    const Tbuf_ = Group.toFields(T_);
-    const key_ = Poseidon.hash(Tbuf_);
+    const key = Poseidon.hash(Group.toFields(T));
 
     // Poseidon Decryption
-    let sponge_ = new Poseidon.Sponge();
-    sponge_.absorb(key_);
-    let keyStream = sponge_.squeeze();
+    let sponge = new Poseidon.Sponge();
+    sponge.absorb(key);
+    let keyStream = sponge.squeeze();
     const plaintext = ciphertext.sub(keyStream);
-
-    return plaintext;
+    plaintext;
   }
 
   @method async generateReKey(
@@ -165,22 +155,22 @@ export class ReEncrypt extends SmartContract {
   ) {
     const tag = this.tag.get();
     this.tag.assertEquals(tag);
+    const encryptedKey = this.encryptedSymmetricKey.get();
+    this.encryptedSymmetricKey.assertEquals(encryptedKey);
 
-    const r = Scalar.random();
-    const h = Scalar.ofBits(
-      Poseidon.hash(tag.toFields().concat(alicePrivateKey.toFields())).toBits()
-    );
+    const xb = alicePrivateKey.toFields();
+    // TODO(@ckartik): Check the checksum
+    const h = Scalar.ofBits(Poseidon.hash(tag.toFields().concat(xb)).toBits());
+    const hG = Group.generator.scale(h);
+    const T = encryptedKey.sub(hG);
+    const sk = bobPubKey
+      .toGroup()
+      .scale(Scalar.ofFields(alicePrivateKey.toFields()));
 
-    // R1 Generation
-    const R1 = Group.generator.scale(r.sub(h));
-    // R2 Geneartion
-    const R2 = bobPubKey.toGroup().scale(r); //  rP = rxG
-    const R3 = h;
+    const hs = T.add(sk);
 
-    // For Linter to shut-up.
-    R1;
-    R2;
-    R3;
+    this.reEncryptedKey.set(hs);
+    this.reEncryptedKey.assertEquals(hs);
   }
 
   @method async grantAccessToData(
