@@ -85,7 +85,7 @@ describe('Add', () => {
       deployerAccount,
       alicePrivateKey
     );
-
+    const alicePubKey = alicePrivateKey.toPublicKey();
     const tree = new Experimental.MerkleTree(height);
 
     var nextIndex = contract.nextIndex.get();
@@ -131,6 +131,23 @@ describe('Add', () => {
       'Decrypted data should be 666: ',
       decryptedPlainText.toString()
     );
+
+    const bobPrivKey = PrivateKey.random();
+    const bobPubKey = bobPrivKey.toPublicKey();
+    // alice sends txn to convert key
+    const txnReCrypt = await Mina.transaction(deployerAccount, () => {
+      contract.generateReKey(alicePrivateKey, bobPubKey);
+      contract.sign(zkAppPrivateKey);
+    });
+    await txnReCrypt.send().wait();
+
+    // bob land gets key and discoveres sym key.
+    const bobReKey = contract.reEncryptedKey.get();
+    const sk = alicePubKey
+      .toGroup()
+      .scale(Scalar.ofFields(bobPrivKey.toFields()));
+    const keybob = bobReKey.sub(sk);
+    keybob.assertEquals(key);
   });
 
   it('correctly creates secret key exchange', async () => {

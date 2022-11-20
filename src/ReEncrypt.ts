@@ -73,7 +73,7 @@ export class ReEncrypt extends SmartContract {
   }
 
   // Currently only supports append-only operations.
-  // TODO(@ckartik): Think about dynamic access
+
   // We may want to pass in the last ciphertext and allow the Poseidon hash to obsorb it
   @method addData(
     data: Field,
@@ -155,6 +155,7 @@ export class ReEncrypt extends SmartContract {
   ) {
     const tag = this.tag.get();
     this.tag.assertEquals(tag);
+
     const encryptedKey = this.encryptedSymmetricKey.get();
     this.encryptedSymmetricKey.assertEquals(encryptedKey);
 
@@ -168,9 +169,7 @@ export class ReEncrypt extends SmartContract {
       .scale(Scalar.ofFields(alicePrivateKey.toFields()));
 
     const hs = T.add(sk);
-
     this.reEncryptedKey.set(hs);
-    this.reEncryptedKey.assertEquals(hs);
   }
 
   @method async grantAccessToData(
