@@ -158,6 +158,31 @@ export class ReEncrypt extends SmartContract {
 
     return plaintext;
   }
+
+  @method async generateReKey(
+    alicePrivateKey: PrivateKey,
+    bobPubKey: PublicKey
+  ) {
+    const tag = this.tag.get();
+    this.tag.assertEquals(tag);
+
+    const r = Scalar.random();
+    const h = Scalar.ofBits(
+      Poseidon.hash(tag.toFields().concat(alicePrivateKey.toFields())).toBits()
+    );
+
+    // R1 Generation
+    const R1 = Group.generator.scale(r.sub(h));
+    // R2 Geneartion
+    const R2 = bobPubKey.toGroup().scale(r); //  rP = rxG
+    const R3 = h;
+
+    // For Linter to shut-up.
+    R1;
+    R2;
+    R3;
+  }
+
   @method async grantAccessToData(
     bobPubKey: PublicKey,
     alicePrivateKey: PrivateKey
