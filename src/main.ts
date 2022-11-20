@@ -50,7 +50,9 @@ import {
 
   const encKey = contract.encryptedSymmetricKey.get();
   let sponge = new Poseidon.Sponge();
-  sponge.absorb(Poseidon.hash(Group.toFields(encKey.sub(hG))));
+  const key = encKey.sub(hG);
+  sponge.absorb(key.x);
+  sponge.absorb(key.y);
 
   // Resulting encrypted payload
   let encryptedData = Field(666).add(sponge.squeeze());
@@ -66,7 +68,8 @@ import {
   console.log('Remote Tree Root: ', contract.treeRoot.get().toString());
 
   let sponge2 = new Poseidon.Sponge();
-  sponge2.absorb(Poseidon.hash(Group.toFields(encKey.sub(hG))));
+  sponge2.absorb(key.x);
+  sponge2.absorb(key.y);
 
   // Resulting encrypted payload
   console.log(
