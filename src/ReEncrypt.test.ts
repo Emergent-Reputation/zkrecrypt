@@ -78,6 +78,8 @@ describe('Add', () => {
   });
 
   it('creates encrypted payload', async () => {
+    // We want to ensure here that a contract is deployed, so we can
+    // interact with it later in this test
     const contract = new ReEncrypt(zkAppAddress);
     await localDeploy(
       contract,
@@ -85,6 +87,7 @@ describe('Add', () => {
       deployerAccount,
       alicePrivateKey
     );
+
     const alicePubKey = alicePrivateKey.toPublicKey();
     const tree = new Experimental.MerkleTree(height);
 

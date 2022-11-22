@@ -45,10 +45,10 @@ export class ReEncrypt extends SmartContract {
   @method init(initRoot: Field, alicePrivateKey: PrivateKey, tag: Field) {
     // We init an empty MerkleTree on initialization.
 
-    // Init Sym Key
-    const symPrivKey = Scalar.random(); // tmp private key
-    // Derive the pubkey
-    const symPubKey = Group.generator.scale(symPrivKey);
+    // Get random initializer value
+    const r = Scalar.random();
+    // Derive the symmetric key
+    const symkey = Group.generator.scale(r);
 
     // Set the tag at the top level
     this.tag.set(tag);
@@ -60,10 +60,10 @@ export class ReEncrypt extends SmartContract {
     const hG = Group.generator.scale(h);
 
     // Set the sym key approperiately
-    this.encryptedSymmetricKey.set(symPubKey.add(hG));
+    this.encryptedSymmetricKey.set(symkey.add(hG));
 
     // Hash of symkey is stored for integirty checks during data updates.
-    this.symKeyHash.set(Poseidon.hash(Group.toFields(symPubKey)));
+    this.symKeyHash.set(Poseidon.hash(Group.toFields(symkey)));
 
     // Set the merkle root hash to zero value
     this.treeRoot.set(initRoot);
@@ -163,28 +163,29 @@ export class ReEncrypt extends SmartContract {
     // TODO(@ckartik): Check the checksum
     const h = Scalar.ofBits(Poseidon.hash(tag.toFields().concat(xb)).toBits());
     const hG = Group.generator.scale(h);
-    const T = encryptedKey.sub(hG);
-    const sk = bobPubKey
+    const sk = encryptedKey.sub(hG);
+
+    const sharedKey = bobPubKey
       .toGroup()
       .scale(Scalar.ofFields(alicePrivateKey.toFields()));
 
-    const hs = T.add(sk);
+    const hs = sk.add(sharedKey);
     this.reEncryptedKey.set(hs);
   }
 
-  @method async grantAccessToData(
-    bobPubKey: PublicKey,
-    alicePrivateKey: PrivateKey
-  ) {
-    const tag = this.tag.get();
-    this.tag.assertEquals(tag);
+  // @method async grantAccessToData(
+  //   bobPubKey: PublicKey,
+  //   alicePrivateKey: PrivateKey
+  // ) {
+  //   const tag = this.tag.get();
+  //   this.tag.assertEquals(tag);
 
-    const h = Scalar.ofBits(
-      Poseidon.hash(tag.toFields().concat(alicePrivateKey.toFields())).toBits()
-    );
-    h;
-    bobPubKey;
-  }
+  //   const h = Scalar.ofBits(
+  //     Poseidon.hash(tag.toFields().concat(alicePrivateKey.toFields())).toBits()
+  //   );
+  //   h;
+  //   bobPubKey;
+  // }
   //   @method async storeEncryptionKey(privKey: PrivateKey) {
   //   }
 
