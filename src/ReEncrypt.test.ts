@@ -77,9 +77,12 @@ describe('Add', () => {
     setTimeout(shutdown, 0);
   });
 
-  it('creates encrypted payload', async () => {
+  it.only('runs though entire encryption re-encryption process', async () => {
     // We want to ensure here that a contract is deployed, so we can
     // interact with it later in this test
+
+    const plaintext = Field(666);
+    console.log('📂 Plaintext value set to: ', plaintext.toString());
     const contract = new ReEncrypt(zkAppAddress);
     await localDeploy(
       contract,
@@ -87,14 +90,15 @@ describe('Add', () => {
       deployerAccount,
       alicePrivateKey
     );
+    console.log('Deployed Contract! 🚀');
 
     const alicePubKey = alicePrivateKey.toPublicKey();
-    const tree = new Experimental.MerkleTree(height);
 
+    const tree = new Experimental.MerkleTree(height);
+    console.log('Initialized merkle tree locally 🌴');
     var nextIndex = contract.nextIndex.get();
 
     const witness = new MerkleWitness(tree.getWitness(nextIndex.toBigInt()));
-    console.log(contract.treeRoot.get().toString());
 
     const h = Scalar.ofBits(
       Poseidon.hash([Field(1)].concat(alicePrivateKey.toFields())).toBits()
@@ -122,19 +126,6 @@ describe('Add', () => {
     console.log('Local Tree Root:  ', tree.getRoot().toString());
     console.log('Remote Tree Root: ', contract.treeRoot.get().toString());
 
-    let sponge2 = new Poseidon.Sponge();
-    sponge2.absorb(key.x);
-    sponge2.absorb(key.y);
-
-    const decryptedPlainText = encryptedData.sub(sponge2.squeeze());
-    decryptedPlainText.assertEquals(Field(666));
-
-    // Resulting encrypted payload
-    console.log(
-      'Decrypted data should be 666: ',
-      decryptedPlainText.toString()
-    );
-
     const bobPrivKey = PrivateKey.random();
     const bobPubKey = bobPrivKey.toPublicKey();
     // alice sends txn to convert key
@@ -142,15 +133,36 @@ describe('Add', () => {
       contract.generateReKey(alicePrivateKey, bobPubKey);
       contract.sign(zkAppPrivateKey);
     });
+    console.log('Generating Re-Encryption Key for Bob...');
     await txnReCrypt.send().wait();
-
     // bob land gets key and discoveres sym key.
     const bobReKey = contract.reEncryptedKey.get();
+    console.log(
+      'Generated Re-Encryption Key for Bob 🎉!  Value is: ',
+      bobReKey.x.toString(),
+      bobReKey.y.toString()
+    );
+
     const sk = alicePubKey
       .toGroup()
       .scale(Scalar.ofFields(bobPrivKey.toFields()));
     const keybob = bobReKey.sub(sk);
     keybob.assertEquals(key);
+
+    let sponge2 = new Poseidon.Sponge();
+    sponge2.absorb(keybob.x);
+    sponge2.absorb(keybob.y);
+
+    const decryptedPlainText = encryptedData.sub(sponge2.squeeze());
+    decryptedPlainText.assertEquals(plaintext);
+
+    // Resulting encrypted payload
+    console.log(
+      'Decrypted data should be 666: ',
+      plaintext.toString(),
+      ' the actual value is also',
+      decryptedPlainText.toString()
+    );
   });
 
   it('correctly creates secret key exchange', async () => {
