@@ -123,32 +123,6 @@ export class ReEncrypt extends SmartContract {
     this.nextIndex.set(currIndex.add(Field(1)));
   }
 
-  @method async selfDecrypt(
-    ciphertext: Field,
-    witness: MerkleWitness20,
-    alicePrivateKey: PrivateKey
-  ) {
-    const tag = this.tag.get();
-    this.tag.assertEquals(tag);
-    const encryptedKey = this.encryptedSymmetricKey.get();
-    this.encryptedSymmetricKey.assertEquals(encryptedKey);
-
-    const xb = alicePrivateKey.toFields();
-    // TODO(@ckartik): Check the checksum
-    const h = Scalar.ofBits(Poseidon.hash(tag.toFields().concat(xb)).toBits());
-    const hG = Group.generator.scale(h);
-    const T = encryptedKey.sub(hG);
-
-    const key = Poseidon.hash(Group.toFields(T));
-
-    // Poseidon Decryption
-    let sponge = new Poseidon.Sponge();
-    sponge.absorb(key);
-    let keyStream = sponge.squeeze();
-    const plaintext = ciphertext.sub(keyStream);
-    plaintext;
-  }
-
   @method async generateReKey(
     alicePrivateKey: PrivateKey,
     bobPubKey: PublicKey
@@ -172,68 +146,4 @@ export class ReEncrypt extends SmartContract {
     const hs = sk.add(sharedKey);
     this.reEncryptedKey.set(hs);
   }
-
-  // @method async grantAccessToData(
-  //   bobPubKey: PublicKey,
-  //   alicePrivateKey: PrivateKey
-  // ) {
-  //   const tag = this.tag.get();
-  //   this.tag.assertEquals(tag);
-
-  //   const h = Scalar.ofBits(
-  //     Poseidon.hash(tag.toFields().concat(alicePrivateKey.toFields())).toBits()
-  //   );
-  //   h;
-  //   bobPubKey;
-  // }
-  //   @method async storeEncryptionKey(privKey: PrivateKey) {
-  //   }
-
-  //   // TODO(@ckartik): Need to figure out how to send large plaintext into function.
-  //   // or somehow prove that the payload encrypted
-  //   @method async encrypt(privKey: PrivateKey) {
-  //     const message = Encoding.stringToFields('Happy Diwali!');
-  //     const tag = Encoding.stringToFields('tag');
-  //     const t = Scalar.random(); // tmp private key
-  //     const T = Group.generator.scale(t); // tmp public key
-
-  //     const h = Poseidon.hash(tag.concat(privKey.toFields())).toBits(); //
-  //     const hG = Group.generator.scale(Scalar.ofBits(h));
-  //     // TODO(@ckartik): Can't seem to set encrypted key into bits
-  //     const encryptedKey = T.add(hG);
-  //     const Tbuf = Group.toFields(T);
-
-  //     const key = Poseidon.hash(Tbuf);
-
-  //     let sponge = new Poseidon.Sponge();
-  //     sponge.absorb(key);
-
-  //     // encryption
-  //     let cipherText: Field[] = [];
-  //     for (let i = 0; i < message.length; i++) {
-  //       let keyStream = sponge.squeeze();
-  //       let encryptedChunk = message[i].add(keyStream);
-  //       cipherText.push(encryptedChunk);
-  //       // absorb for the auth tag (two at a time for saving permutations)
-  //       let absorbableData: Field[] = []
-
-  //       /*
-  //       Converts
-
-  //       if (i % 2 === 1) sponge.absorb(cipherText[i - 1]);
-  //       if (i % 2 === 1 || i === message.length - 1) sponge.absorb(cipherText[i]);
-
-  //       into a circuit
-  //       */
-  //       absorbableData =  Circuit.if(i % 2 === 1, absorbableData.concat(cipherText[i - 1]), absorbableData)
-  //       absorbableData =  Circuit.if(i % 2 === 1 || i === message.length - 1, absorbableData.concat(cipherText[i]), absorbableData)
-  //       for (let j = 0; j < absorbableData.length; j++) {
-  //         sponge.absorb(absorbableData[j])
-  //       }
-  //     }
-  //     // authentication tag
-  //     let authenticationTag = sponge.squeeze();
-  //     cipherText.push(authenticationTag);
-
-  // }
 }

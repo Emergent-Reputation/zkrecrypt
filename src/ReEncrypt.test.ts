@@ -77,11 +77,12 @@ describe('Add', () => {
     setTimeout(shutdown, 0);
   });
 
+  /*
+    For the DEMO 
+  */
   it.only('runs though entire encryption re-encryption process', async () => {
-    // We want to ensure here that a contract is deployed, so we can
-    // interact with it later in this test
+    const plaintext = Field(23323);
 
-    const plaintext = Field(666);
     console.log('📂 Plaintext value set to: ', plaintext.toString());
     const contract = new ReEncrypt(zkAppAddress);
     await localDeploy(
@@ -112,11 +113,11 @@ describe('Add', () => {
     sponge.absorb(key.y);
 
     // Resulting encrypted payload
-    let encryptedData = Field(666).add(sponge.squeeze());
+    let encryptedData = plaintext.add(sponge.squeeze());
     tree.setLeaf(nextIndex.toBigInt(), encryptedData);
 
     const txn1 = await Mina.transaction(deployerAccount, () => {
-      contract.addData(Field(666), witness, alicePrivateKey);
+      contract.addData(plaintext, witness, alicePrivateKey);
       contract.sign(zkAppPrivateKey);
     });
     await txn1.send().wait();
@@ -158,7 +159,7 @@ describe('Add', () => {
 
     // Resulting encrypted payload
     console.log(
-      'Decrypted data should be 666: ',
+      'Decrypted data should be: ',
       plaintext.toString(),
       ' the actual value is also',
       decryptedPlainText.toString()
